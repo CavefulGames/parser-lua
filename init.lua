@@ -95,7 +95,7 @@ local function createParser(comps)
 	end
 
 	-- main parser function
-	local function parse(self,str,start,verbose)
+	local function parse(self,str,start,userdata,verbose)
 		local state = setmetatable({parent = self, __state = true},comps)
 		local findCache = {}
 		local strlen = #str
@@ -106,11 +106,11 @@ local function createParser(comps)
 		local orphans = comps.orphans
 		local tailing = comps.tailing
 		local noEOF = comps.noEOF
-		local ignoreIndexs = {}
+		-- local ignoreIndexs = {}
 
 		-- Run init function
 		if init then
-			local initPos,initEndup = init(state,str,pos)
+			local initPos,initEndup = init(state,str,pos,userdata)
 			if initPos then pos = initPos end -- move position if updated
 			if initEndup then -- check endup
 				local result = state
