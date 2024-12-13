@@ -1,4 +1,6 @@
-  --[[lit-meta
+--!strict
+
+--[[lit-meta
     name = "qwreey/parser"
     version = "2.1.5"
     dependencies = {}
@@ -18,13 +20,12 @@ should impl
  - cache
 ]]
 
-local utf8 = utf8 or require "utf8"
 local concat = table.concat
 local insert = table.insert
 local remove = table.remove
 
 -- flatten templates
-local function flatten(comps)
+local function flatten(comps: any)
 	local cur,tmp = 1,comps[1]
 	while tmp do
 		if type(tmp) == "table" and rawget(tmp,"__template") then
@@ -46,7 +47,7 @@ local function isCacheable(regex)
 	return true
 end
 
-local function createParser(comps)
+local function createParser(comps: { [any]: any })
 	comps.__index = comps
 	comps.__parser = true
 
@@ -77,7 +78,7 @@ local function createParser(comps)
 				error("Regular expressions and handler functions are not paired. (length: "..tostring(#comps)..")")
 			end
 			if type(regex) == "table" then -- unpack table
-				for _,childRegex in ipairs(regex) do
+				for _,childRegex in ipairs(regex :: any) do
 					cacheable[index] = isCacheable(childRegex)
 					regexs[index] = childRegex
 					funcs[index] = func
@@ -244,17 +245,17 @@ local function createParser(comps)
 			if type(self) == "table" and rawget(self,"__state") then
 				return parse(self,...)
 			end
-			return parse(nil,self,...)
+			return parse(nil,self::any,...)
 		end
 	})
 	return comps
 end
 
 local whitespaces = "%s+"
-local function ignore(_,_,_,_,endAt)
+local function ignore(_,_,_,_,endAt: any)
 	return endAt+1
 end
-local function eof(_,_,_,_,endAt)
+local function eof(_,_,_,_,endAt: any)
 	return endAt+1,true
 end
 
@@ -275,11 +276,13 @@ local stringEscapes = setmetatable({
 local function luaStringEscapes(func)
 	return {
 		__template = true,
-		"\\u{(%x+)}",   function (self,str,pos,startAt,endAt,hex) return func(self,str,pos,startAt,endAt,utf8.char(tonumber(hex,16))) end,
+		"\\u{(%x+)}",   function (self,str,pos,startAt,endAt,hex) return func(self,str,pos,startAt,endAt,utf8.char(tonumber(hex,16) :: any)) end,
 		"\\(%d%d?%d?)", function (self,str,pos,startAt,endAt,num) return func(self,str,pos,startAt,endAt,string.char(num)) end,
-		"\\x(%x%x?)",   function (self,str,pos,startAt,endAt,hex) return func(self,str,pos,startAt,endAt,string.char(tonumber(hex,16))) end,
+		"\\x(%x%x?)",   function (self,str,pos,startAt,endAt,hex) return func(self,str,pos,startAt,endAt,string.char(tonumber(hex,16) :: any)) end,
 		"\\(.)",        function (self,str,pos,startAt,endAt,char) return func(self,str,pos,startAt,endAt,stringEscapes[char]) end,
-	}
+	} :: {
+        [number]: any
+    }
 end
 
 local function luaNumbers(func)
@@ -297,7 +300,9 @@ local function luaNumbers(func)
 		"(%d*%.?%d+)", function (self,str,pos,startAt,endAt,num)
 			return func(self,str,pos,startAt,endAt,tonumber(num))
 		end,
-	}
+	} :: {
+        [number]: any
+    }
 end
 
 local luaStringParser = createParser {
@@ -307,8 +312,8 @@ local luaStringParser = createParser {
 		orphans = function (self,str) insert(self.parent.buffer,str) end;
 		tailing = function (self,str) insert(self.parent.buffer,str) end;
 	};
-	"^%[%[", function (self,str,pos,startAt,endAt)
-		local _,parseEndAt = self:blockParser(str,endAt+1)
+	"^%[%[", function (self,str,pos,startAt,endAt: any)
+		local _,parseEndAt: any = self:blockParser(str,endAt+1)
 		return parseEndAt+1,true
 	end;
 
@@ -318,11 +323,11 @@ local luaStringParser = createParser {
 		orphans = function (self,str) insert(self.parent.buffer,str) end;
 		tailing = function (self,str) insert(self.parent.buffer,str) end;
 		luaStringEscapes(function (self,str,pos,startAt,endAt,char)
-			insert(self.parent.buffer,char)
+			insert((self :: any).parent.buffer,char)
 		end);
 	};
-	"^\"", function (self,str,pos,startAt,endAt)
-		local _,parseEndAt = self:doubleQuoteParser(str,endAt+1)
+	"^\"", function (self,str,pos,startAt,endAt: any)
+		local _,parseEndAt: any = self:doubleQuoteParser(str,endAt+1)
 		return parseEndAt+1,true
 	end;
 
@@ -332,11 +337,11 @@ local luaStringParser = createParser {
 		orphans = function (self,str) insert(self.parent.buffer,str) end;
 		tailing = function (self,str) insert(self.parent.buffer,str) end;
 		luaStringEscapes(function (self,str,pos,startAt,endAt,char)
-			insert(self.parent.buffer,char)
+			insert((self :: any).parent.buffer,char)
 		end);
 	};
-	"^'", function (self,str,pos,startAt,endAt)
-		local _,parseEndAt = self:singleQuoteParser(str,endAt+1)
+	"^'", function (self,str,pos,startAt,endAt: any)
+		local _,parseEndAt: any = self:singleQuoteParser(str,endAt+1)
 		return parseEndAt+1,true
 	end;
 
@@ -351,7 +356,9 @@ local function luaStrings(func)
 			local funcPos,funcStop = func(self,str,pos,startAt,parseEndAt,result)
 			return funcPos or (parseEndAt + 1), funcStop
 		end,
-	}
+	} :: {
+        [any]: any
+    }
 end
 
 local function luaValues(func)
@@ -359,7 +366,7 @@ local function luaValues(func)
 		__template = true,
 
 		-- Boolean parsing
-		"true", function (self, str, pos, startAt, endAt)
+		"true", function (self: any, str: any, pos: any, startAt: any, endAt: any)
 			local funcPos,funcStop = func(self,str,pos,startAt,endAt,true)
 			return funcPos or (endAt + 1), funcStop
 		end;
@@ -370,22 +377,24 @@ local function luaValues(func)
 
 		-- Nil parsing
 		"nil", function (self, str, pos, startAt, endAt)
-			local funcPos,funcStop = func(self,str,pos,startAt,endAt,nil)
+			local funcPos,funcStop = func(self,str,pos,startAt,endAt,nil :: any)
 			return funcPos or (endAt + 1), funcStop
 		end;
 
 		-- Number parsing
-		luaNumbers(function(self, str, pos, startAt, endAt, num)
+		luaNumbers(function(self, str, pos, startAt, endAt: any, num: any)
 			local funcPos,funcStop = func(self,str,pos,startAt,endAt,num)
 			return funcPos or (endAt + 1), funcStop
 		end);
 
 		-- String parsing
-		luaStrings(function(self, str, pos, startAt, endAt, string)
+		luaStrings(function(self, str, pos, startAt, endAt, string: any): (any, any)
 			local funcPos,funcStop = func(self,str,pos,startAt,endAt,string)
 			return funcPos or (endAt + 1), funcStop
 		end);
-	}
+	} :: {
+        [any]: any
+    }
 end
 
 local luaValueParser = createParser {
@@ -394,7 +403,7 @@ local luaValueParser = createParser {
 	end;
 
 	-- common lua values
-	luaValues(function(self, str, pos, startAt, endAt, value)
+	luaValues(function(self, str, pos, startAt, endAt: any, value): (any, any)
 		self.value = value
 		return endAt+1,true
 	end);
@@ -407,12 +416,12 @@ local luaValueParser = createParser {
 		end;
 
 		-- index by string
-		"^%s*([_%w][%w_]*)%s*=%s*", function (self, str, pos, startAt, endAt, key)
+		"^%s*([_%w][%w_]*)%s*=%s*", function (self, str, pos, startAt, endAt: any, key)
 			if self.terminatorRequired then
 				error("token [;,] is require on position "..tostring(startAt))
 			end
 			self.terminatorRequired = true
-			local value, valueEndAt = self.super(str,endAt+1)
+			local value, valueEndAt: any = self.super(str,endAt+1)
 			self.parent.value[key] = value
 			self.terminatorRequired = true
 			return valueEndAt+1
@@ -420,33 +429,33 @@ local luaValueParser = createParser {
 
 		-- index by lua value
 		indexParser = createParser {
-			"^%s*]%s*=%s*", function (self, str, pos, startAt, endAt)
+			"^%s*]%s*=%s*", function (self, str, pos, startAt, endAt: any)
 				return endAt+1,true
 			end;
 		};
-		"^%s*%[", function (self, str, pos, startAt, endAt)
+		"^%s*%[", function (self, str, pos, startAt, endAt: any)
 			if self.terminatorRequired then
 				error("token [;,] is require on position "..tostring(startAt))
 			end
 			self.terminatorRequired = true
-			local key,keyEndAt = self.super(str,endAt+1)
-			local _,indexEndAt = self.indexParser(str,keyEndAt+1)
+			local key,keyEndAt: any = self.super(str,endAt+1)
+			local _,indexEndAt: any = self.indexParser(str,keyEndAt+1)
 			local value, valueEndAt = self.super(str,indexEndAt+1)
 			self.parent.value[key] = value
 			return valueEndAt+1
 		end;
 
 		-- next key
-		"^%s*[;,]", function (self, str, pos, startAt, endAt, key)
+		"^%s*[;,]", function (self, str, pos, startAt, endAt: any, key)
 			if not self.terminatorRequired then
-				error("Unexpected token "..str:sub(endAt,endAt).." at position "..tostring(endAt))
+				error("Unexpected token "..str:sub(endAt,endAt) :: any .." at position "..tostring(endAt))
 			end
 			self.terminatorRequired = false
 			return endAt+1
 		end;
 
 		-- EOF
-		"^%s*}", function (self, str, pos, startAt, endAt)
+		"^%s*}", function (self, str, pos, startAt, endAt: any)
 			return endAt+1,true
 		end;
 
@@ -456,18 +465,18 @@ local luaValueParser = createParser {
 				error("token [;,] is require on position "..tostring(startAt))
 			end
 			self.terminatorRequired = true
-			local index = self.orphanIndex
-			local value, valueEndAt = self.super(str,valueStartAt)
+			local index: any = self.orphanIndex
+			local value, valueEndAt: any = self.super(str,valueStartAt)
 			self.parent.value[index] = value
 			self.orphanIndex = index+1
 			return valueEndAt+1
 		end;
 		whitespaces, ignore;
 	};
-	"{", function (self, str, pos, startAt, endAt)
+	"{", function (self, str, pos, startAt, endAt: any)
 		-- pass self to object parser
 		self.value = {}
-		local _,parseEndAt = self:objectParser(str,endAt+1)
+		local _,parseEndAt: any = self:objectParser(str,endAt+1)
 		return parseEndAt+1,true
 	end;
 	whitespaces, ignore;
@@ -481,7 +490,7 @@ local luaNonstrictValueParser = createParser {
 	end;
 
 	-- common lua values
-	luaValues(function(self, str, pos, startAt, endAt, value)
+	luaValues(function(self, str, pos, startAt, endAt: any, value): (any, any)
 		self.value = value
 		return endAt+1,true
 	end);
@@ -493,50 +502,50 @@ local luaNonstrictValueParser = createParser {
 		end;
 
 		-- index by string
-		"^%s*([_%w][%w_]*)%s*[=:]%s*", function (self, str, pos, startAt, endAt, key)
-			local value, valueEndAt = self.super(str,endAt+1)
+		"^%s*([_%w][%w_]*)%s*[=:]%s*", function (self, str, pos, startAt, endAt: any, key)
+			local value, valueEndAt: any = self.super(str,endAt+1)
 			self.parent.value[key] = value
 			return valueEndAt+1
 		end;
 
 		-- index by lua value
 		indexParser = createParser {
-			"^%s*]%s*[=:]%s*", function (self, str, pos, startAt, endAt)
+			"^%s*]%s*[=:]%s*", function (self, str, pos, startAt, endAt: any)
 				return endAt+1,true
 			end;
 		};
-		"^%s*%[", function (self, str, pos, startAt, endAt, key)
-			local key,keyEndAt = self.super(str,endAt+1)
-			local _,indexEndAt = self.indexParser(str,keyEndAt+1)
+		"^%s*%[", function (self, str, pos, startAt, endAt: any, key)
+			local key,keyEndAt: any = self.super(str,endAt+1)
+			local _,indexEndAt: any = self.indexParser(str,keyEndAt+1)
 			local value, valueEndAt = self.super(str,indexEndAt+1)
 			self.parent.value[key] = value
 			return valueEndAt+1
 		end;
 
 		-- next key
-		"^%s*[;,]", function (self, str, pos, startAt, endAt, key)
+		"^%s*[;,]", function (self, str, pos, startAt, endAt: any, key)
 			return endAt+1
 		end;
 
 		-- EOF
-		"^%s*}", function (self, str, pos, startAt, endAt)
+		"^%s*}", function (self, str, pos, startAt, endAt: any)
 			return endAt+1,true
 		end;
 
 		-- any (array style items)
 		"^%s*().+", function (self, str, pos, startAt, endAt, valueStartAt)
-			local index = self.orphanIndex
-			local value, valueEndAt = self.super(str,valueStartAt)
+			local index: any = self.orphanIndex
+			local value, valueEndAt: any = self.super(str,valueStartAt)
 			self.parent.value[index] = value
 			self.orphanIndex = index+1
 			return valueEndAt+1
 		end;
 		whitespaces, ignore;
 	};
-	"{", function (self, str, pos, startAt, endAt)
+	"{", function (self, str, pos, startAt, endAt: any)
 		-- pass self to object parser
 		self.value = {}
-		local _,parseEndAt = self:objectParser(str,endAt+1)
+		local _,parseEndAt: any = self:objectParser(str,endAt+1)
 		return parseEndAt+1,true
 	end;
 	whitespaces, ignore;
